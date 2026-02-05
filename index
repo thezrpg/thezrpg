@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ZRP TERMINAL</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Caveat&display=swap" rel="stylesheet">
+
+<!-- IMPORTANT: use module version -->
+<script type="module">
+
+/* ===============================
+   🔥 PUT YOUR SUPABASE KEYS HERE
+================================ */
+
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
+
+const SUPABASE_URL = "https://ldciteylbjxayxpnqwqi.supabase.co"
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkY2l0ZXlsYmp4YXl4cG5xd3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE4ODMsImV4cCI6MjA4NTg5Nzg4M30.e5eInzGLAC983vBqyXBUGNB4RnbP0RPcPUJWAtnS-hU"
+
+const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+/* ---------------- tabs ---------------- */
+
+window.showTab = (id) => {
+  document.querySelectorAll('.tab').forEach(t => t.style.display = "none")
+  document.getElementById(id).style.display = "block"
+}
+
+/* ---------------- MISSIONS ---------------- */
+
+async function loadMissions() {
+  const { data } = await client.from('missions').select('*')
+
+  const list = document.getElementById('missionList')
+  list.innerHTML = ''
+
+  data?.forEach(m => {
+    const div = document.createElement('div')
+
+    const btn = document.createElement('button')
+    btn.textContent = m.claimed ? "claimed" : "claim"
+    btn.onclick = () => claimMission(m.id)
+
+    div.textContent = m.text + " "
+    div.appendChild(btn)
+
+    list.appendChild(div)
+  })
+}
+
+async function claimMission(id) {
+  await client.from('missions').update({ claimed: true }).eq('id', id)
+  loadMissions()
+}
+
+/* ---------------- RADIO ---------------- */
+
+async function loadMessages() {
+  const { data } = await client.from('messages').select('*').order('id')
+
+  const box = document.getElementById('messages')
+  box.innerHTML = ''
+
+  data?.forEach(m => {
+    const p = document.createElement('div')
+    p.textContent = `[${m.user}] ${m.text}`
+    box.appendChild(p)
+  })
+}
+
+window.sendMessage = async () => {
+  const input = document.getElementById('msgInput')
+  if (!input.value) return
+
+  await client.from('messages').insert({
+    user: "woods",
+    text: input.value
+  })
+
+  input.value = ''
+}
+
+/* realtime */
+client
+  .channel('radio')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, loadMessages)
+  .subscribe()
+
+loadMessages()
+loadMissions()
+
+</script>
+
+<style>
+body {
+  margin:0;
+  background:#1b1b1b;
+  display:flex;
+  justify-content:center;
+  padding:40px;
+  font-family:'Special Elite', monospace;
+}
+
+.paper {
+  width:900px;
+  background:#e6d3b3;
+  padding:30px;
+  box-shadow:0 0 40px black;
+}
+
+.title {
+  text-align:center;
+  font-family:'Caveat', cursive;
+  font-size:48px;
+}
+
+nav button {
+  font-family:'Caveat', cursive;
+  font-size:22px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  margin-right:12px;
+}
+
+.tab {
+  margin-top:20px;
+}
+
+#messages {
+  height:250px;
+  overflow:auto;
+  background:rgba(0,0,0,0.1);
+  padding:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="paper">
+
+<h1 class="title">sanctuary terminal</h1>
+
+<nav>
+<button onclick="showTab('missions')">missions</button>
+<button onclick="showTab('stats')">stats</button>
+<button onclick="showTab('map')">map</button>
+<button onclick="showTab('radio')">radio</button>
+</nav>
+
+<section id="missions" class="tab">
+<h2>missions</h2>
+<div id="missionList"></div>
+</section>
+
+<section id="stats" class="tab" style="display:none">
+stats coming soon
+</section>
+
+<section id="map" class="tab" style="display:none">
+map here
+</section>
+
+<section id="radio" class="tab" style="display:none">
+<div id="messages"></div>
+<input id="msgInput">
+<button onclick="sendMessage()">send</button>
+</section>
+
+</div>
+
+</body>
+</html>
