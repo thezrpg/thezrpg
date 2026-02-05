@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Dead Ones</title>
+<title>Zombie Apocalypse RPG</title>
 
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -72,10 +72,10 @@
 
 <div class="sidebar">
   <h2>Survivor Menu</h2>
-  <div class="menu-item" onclick="showSection('stats')">Stats</div>
-  <div class="menu-item" onclick="showSection('missions')">Missions</div>
-  <div class="menu-item" onclick="showSection('map')">Map</div>
-  <div class="menu-item" onclick="showSection('radio')">Radio</div>
+  <div class="menu-item" data-section="stats">Stats</div>
+  <div class="menu-item" data-section="missions">Missions</div>
+  <div class="menu-item" data-section="map">Map</div>
+  <div class="menu-item" data-section="radio">Radio</div>
 </div>
 
 <div class="main">
@@ -121,15 +121,15 @@
   // ---- Supabase Setup ----
   const SUPABASE_URL = 'https://thezrpg.github.io/thezrpg/'; 
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkY2l0ZXlsYmp4YXl4cG5xd3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE4ODMsImV4cCI6MjA4NTg5Nzg4M30.e5eInzGLAC983vBqyXBUGNB4RnbP0RPcPUJWAtnS-hU';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let currentUser = null;
 
   async function initUser() {
     // For demo: pick first user or create one
-    let { data: users } = await supabase.from('users').select('*').limit(1);
+    let { data: users } = await supabaseClient.from('users').select('*').limit(1);
     if(users.length === 0) {
-      let { data } = await supabase.from('users').insert([{username:'Survivor001'}]).select();
+      let { data } = await supabaseClient.from('users').insert([{username:'Survivor001'}]).select();
       currentUser = data[0];
     } else {
       currentUser = users[0];
@@ -139,10 +139,21 @@
     loadRadio();
   }
 
+  // ---- Section Switching ----
   function showSection(section) {
     const sections = ['stats','missions','map','radio'];
-    sections.forEach(sec => document.getElementById(sec).style.display = (sec===section)?'block':'none');
+    sections.forEach(sec => {
+      document.getElementById(sec).style.display = (sec===section) ? 'block' : 'none';
+    });
   }
+
+  // Attach click events to sidebar items
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const section = item.dataset.section;
+      showSection(section);
+    });
+  });
 
   // ---- Stats ----
   function displayStats() {
@@ -160,7 +171,7 @@ Inventory: [${currentUser.inventory.join(', ')}]`;
     if(e.key === 'Enter') {
       const newName = e.target.value.trim();
       if(newName) {
-        let { data } = await supabase.from('users').update({username:newName}).eq('id', currentUser.id).select();
+        let { data } = await supabaseClient.from('users').update({username:newName}).eq('id', currentUser.id).select();
         currentUser = data[0];
         displayStats();
         e.target.value = '';
@@ -171,7 +182,7 @@ Inventory: [${currentUser.inventory.join(', ')}]`;
   // ---- Missions ----
   async function loadMissions() {
     if(!currentUser) return;
-    let { data: missions } = await supabase.from('missions').select('*').eq('user_id', currentUser.id);
+    let { data: missions } = await supabaseClient.from('missions').select('*').eq('user_id', currentUser.id);
     displayMissions(missions);
   }
 
@@ -184,7 +195,7 @@ Inventory: [${currentUser.inventory.join(', ')}]`;
     if(e.key==='Enter'){
       const title = e.target.value.trim();
       if(!title) return;
-      await supabase.from('missions').insert([{user_id: currentUser.id, title}]);
+      await supabaseClient.from('missions').insert([{user_id: currentUser.id, title}]);
       e.target.value='';
       loadMissions();
     }
@@ -192,7 +203,7 @@ Inventory: [${currentUser.inventory.join(', ')}]`;
 
   // ---- Radio ----
   async function loadRadio() {
-    const { data: messages } = await supabase.from('radio_messages').select('*').order('created_at', {ascending:true});
+    const { data: messages } = await supabaseClient.from('radio_messages').select('*').order('created_at', {ascending:true});
     const output = document.getElementById('radio-output');
     output.textContent = messages.map(m => `[${m.user_id === currentUser.id ? currentUser.username : 'Survivor'}]: ${m.message}`).join('\n');
   }
@@ -201,7 +212,7 @@ Inventory: [${currentUser.inventory.join(', ')}]`;
     if(e.key==='Enter'){
       const input = e.target.value.trim();
       if(!input) return;
-      await supabase.from('radio_messages').insert([{user_id: currentUser.id, message:input}]);
+      await supabaseClient.from('radio_messages').insert([{user_id: currentUser.id, message:input}]);
       e.target.value='';
       loadRadio();
     }
