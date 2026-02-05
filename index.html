@@ -1,175 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>ZRP TERMINAL</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dead Ones</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Caveat&display=swap" rel="stylesheet">
-
-<!-- IMPORTANT: use module version -->
-<script type="module">
-
-/* ===============================
-   🔥 PUT YOUR SUPABASE KEYS HERE
-================================ */
-
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
-
-const SUPABASE_URL = "https://ldciteylbjxayxpnqwqi.supabase.co"
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkY2l0ZXlsYmp4YXl4cG5xd3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE4ODMsImV4cCI6MjA4NTg5Nzg4M30.e5eInzGLAC983vBqyXBUGNB4RnbP0RPcPUJWAtnS-hU"
-
-const client = createClient(SUPABASE_URL, SUPABASE_KEY)
-
-/* ---------------- tabs ---------------- */
-
-window.showTab = (id) => {
-  document.querySelectorAll('.tab').forEach(t => t.style.display = "none")
-  document.getElementById(id).style.display = "block"
-}
-
-/* ---------------- MISSIONS ---------------- */
-
-async function loadMissions() {
-  const { data } = await client.from('missions').select('*')
-
-  const list = document.getElementById('missionList')
-  list.innerHTML = ''
-
-  data?.forEach(m => {
-    const div = document.createElement('div')
-
-    const btn = document.createElement('button')
-    btn.textContent = m.claimed ? "claimed" : "claim"
-    btn.onclick = () => claimMission(m.id)
-
-    div.textContent = m.text + " "
-    div.appendChild(btn)
-
-    list.appendChild(div)
-  })
-}
-
-async function claimMission(id) {
-  await client.from('missions').update({ claimed: true }).eq('id', id)
-  loadMissions()
-}
-
-/* ---------------- RADIO ---------------- */
-
-async function loadMessages() {
-  const { data } = await client.from('messages').select('*').order('id')
-
-  const box = document.getElementById('messages')
-  box.innerHTML = ''
-
-  data?.forEach(m => {
-    const p = document.createElement('div')
-    p.textContent = `[${m.user}] ${m.text}`
-    box.appendChild(p)
-  })
-}
-
-window.sendMessage = async () => {
-  const input = document.getElementById('msgInput')
-  if (!input.value) return
-
-  await client.from('messages').insert({
-    user: "woods",
-    text: input.value
-  })
-
-  input.value = ''
-}
-
-/* realtime */
-client
-  .channel('radio')
-  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, loadMessages)
-  .subscribe()
-
-loadMessages()
-loadMissions()
-
-</script>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body {
-  margin:0;
-  background:#1b1b1b;
-  display:flex;
-  justify-content:center;
-  padding:40px;
-  font-family:'Special Elite', monospace;
-}
-
-.paper {
-  width:900px;
-  background:#e6d3b3;
-  padding:30px;
-  box-shadow:0 0 40px black;
-}
-
-.title {
-  text-align:center;
-  font-family:'Caveat', cursive;
-  font-size:48px;
-}
-
-nav button {
-  font-family:'Caveat', cursive;
-  font-size:22px;
-  background:none;
-  border:none;
-  cursor:pointer;
-  margin-right:12px;
-}
-
-.tab {
-  margin-top:20px;
-}
-
-#messages {
-  height:250px;
-  overflow:auto;
-  background:rgba(0,0,0,0.1);
-  padding:10px;
-}
+  body {
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    background: url('https://i.imgur.com/3k0gBzV.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #eee;
+    display: flex;
+    height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: absolute;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.7);
+    z-index: 0;
+  }
+  .sidebar {
+    position: relative; z-index: 1;
+    width: 220px;
+    background: rgba(20,20,20,0.9);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 15px;
+    border-right: 2px solid #800000;
+  }
+  .sidebar h2 {
+    text-align: center; color: #ff4444;
+    margin-bottom: 10px;
+    font-size: 20px;
+    border-bottom: 1px solid #ff4444;
+    padding-bottom: 5px;
+  }
+  .menu-item {
+    background: #222; color: #eee;
+    padding: 8px; border-radius: 4px;
+    cursor: pointer; text-align: center;
+    transition: 0.2s; border: 1px solid #800000;
+  }
+  .menu-item:hover { background: #800000; color: #fff; }
+  .main {
+    position: relative; z-index:1;
+    flex: 1; padding: 20px;
+    display: flex; flex-direction: column; gap: 15px;
+  }
+  .section-title { font-size: 20px; margin-bottom: 10px; color: #ff4444;
+    border-bottom: 1px solid #ff4444; padding-bottom: 5px; }
+  .terminal-output {
+    background: rgba(30,30,30,0.9); padding: 15px; border-radius: 5px;
+    min-height: 200px; overflow-y: auto; font-size: 14px; white-space: pre-line;
+    border: 1px solid #800000;
+  }
+  .input-line { display: flex; gap: 10px; margin-top: 10px; }
+  input.command {
+    flex: 1; padding: 8px; background: #222; border: 1px solid #ff4444;
+    color: #eee; font-family: monospace; font-size: 14px; border-radius: 4px;
+  }
+  input.command:focus { outline: none; box-shadow: 0 0 5px #ff4444; }
+  .danger { color: #ff0000; font-weight: bold; }
 </style>
 </head>
-
 <body>
 
-<div class="paper">
-
-<h1 class="title">sanctuary terminal</h1>
-
-<nav>
-<button onclick="showTab('missions')">missions</button>
-<button onclick="showTab('stats')">stats</button>
-<button onclick="showTab('map')">map</button>
-<button onclick="showTab('radio')">radio</button>
-</nav>
-
-<section id="missions" class="tab">
-<h2>missions</h2>
-<div id="missionList"></div>
-</section>
-
-<section id="stats" class="tab" style="display:none">
-stats coming soon
-</section>
-
-<section id="map" class="tab" style="display:none">
-map here
-</section>
-
-<section id="radio" class="tab" style="display:none">
-<div id="messages"></div>
-<input id="msgInput">
-<button onclick="sendMessage()">send</button>
-</section>
-
+<div class="sidebar">
+  <h2>Survivor Menu</h2>
+  <div class="menu-item" onclick="showSection('stats')">Stats</div>
+  <div class="menu-item" onclick="showSection('missions')">Missions</div>
+  <div class="menu-item" onclick="showSection('map')">Map</div>
+  <div class="menu-item" onclick="showSection('radio')">Radio</div>
 </div>
+
+<div class="main">
+  <!-- Stats -->
+  <div id="stats" class="section">
+    <div class="section-title">Survivor Stats</div>
+    <div class="terminal-output" id="stats-output">Loading...</div>
+    <div class="input-line">
+      <input type="text" class="command" id="editName" placeholder="Change Name" onkeypress="updateName(event)">
+    </div>
+  </div>
+
+  <!-- Missions -->
+  <div id="missions" class="section" style="display:none">
+    <div class="section-title">Current Missions</div>
+    <div class="terminal-output" id="missions-output">Loading...</div>
+    <div class="input-line">
+      <input type="text" class="command" id="newMission" placeholder="Add Mission" onkeypress="addMission(event)">
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map" class="section" style="display:none">
+    <div class="section-title">Map</div>
+    <div class="terminal-output" id="map-output">
+      <img src="https://i.imgur.com/MapExample.jpg" alt="Zombie Map" style="width:100%; border:1px solid #800000;">
+      <p>[You are here: Safehouse]</p>
+      <p>Nearby Locations: Hospital <span class="danger">!!!</span>, Warehouse, Radio Tower</p>
+    </div>
+  </div>
+
+  <!-- Radio -->
+  <div id="radio" class="section" style="display:none">
+    <div class="section-title">Radio</div>
+    <div class="terminal-output" id="radio-output">Loading messages...</div>
+    <div class="input-line">
+      <input type="text" class="command" placeholder="Send radio message" onkeypress="sendRadio(event)">
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- Supabase Setup ----
+  const SUPABASE_URL = 'https://thezrpg.github.io/thezrpg/'; 
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkY2l0ZXlsYmp4YXl4cG5xd3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE4ODMsImV4cCI6MjA4NTg5Nzg4M30.e5eInzGLAC983vBqyXBUGNB4RnbP0RPcPUJWAtnS-hU';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentUser = null;
+
+  async function initUser() {
+    // For demo: pick first user or create one
+    let { data: users } = await supabase.from('users').select('*').limit(1);
+    if(users.length === 0) {
+      let { data } = await supabase.from('users').insert([{username:'Survivor001'}]).select();
+      currentUser = data[0];
+    } else {
+      currentUser = users[0];
+    }
+    displayStats();
+    loadMissions();
+    loadRadio();
+  }
+
+  function showSection(section) {
+    const sections = ['stats','missions','map','radio'];
+    sections.forEach(sec => document.getElementById(sec).style.display = (sec===section)?'block':'none');
+  }
+
+  // ---- Stats ----
+  function displayStats() {
+    if(!currentUser) return;
+    const statsDiv = document.getElementById('stats-output');
+    statsDiv.textContent = 
+`Name: ${currentUser.username}
+HP: ${currentUser.hp}
+Stamina: ${currentUser.stamina}
+Infection: ${currentUser.infection}%
+Inventory: [${currentUser.inventory.join(', ')}]`;
+  }
+
+  async function updateName(e) {
+    if(e.key === 'Enter') {
+      const newName = e.target.value.trim();
+      if(newName) {
+        let { data } = await supabase.from('users').update({username:newName}).eq('id', currentUser.id).select();
+        currentUser = data[0];
+        displayStats();
+        e.target.value = '';
+      }
+    }
+  }
+
+  // ---- Missions ----
+  async function loadMissions() {
+    if(!currentUser) return;
+    let { data: missions } = await supabase.from('missions').select('*').eq('user_id', currentUser.id);
+    displayMissions(missions);
+  }
+
+  function displayMissions(missions) {
+    const missionsDiv = document.getElementById('missions-output');
+    missionsDiv.textContent = missions.map(m => `- ${m.title}${m.status==='pending'?'':' (done)'}`).join('\n');
+  }
+
+  async function addMission(e) {
+    if(e.key==='Enter'){
+      const title = e.target.value.trim();
+      if(!title) return;
+      await supabase.from('missions').insert([{user_id: currentUser.id, title}]);
+      e.target.value='';
+      loadMissions();
+    }
+  }
+
+  // ---- Radio ----
+  async function loadRadio() {
+    const { data: messages } = await supabase.from('radio_messages').select('*').order('created_at', {ascending:true});
+    const output = document.getElementById('radio-output');
+    output.textContent = messages.map(m => `[${m.user_id === currentUser.id ? currentUser.username : 'Survivor'}]: ${m.message}`).join('\n');
+  }
+
+  async function sendRadio(e) {
+    if(e.key==='Enter'){
+      const input = e.target.value.trim();
+      if(!input) return;
+      await supabase.from('radio_messages').insert([{user_id: currentUser.id, message:input}]);
+      e.target.value='';
+      loadRadio();
+    }
+  }
+
+  // ---- Initialize ----
+  initUser();
+</script>
 
 </body>
 </html>
